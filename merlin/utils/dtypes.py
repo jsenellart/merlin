@@ -49,6 +49,15 @@ _TORCH_DTYPE_MAP: dict[object, torch.dtype] = {
     np.complex64: torch.complex64,
 }
 
+# Optionally include float16/complex32 mappings when available in the running PyTorch build
+if hasattr(torch, "float16"):
+    _TORCH_DTYPE_MAP["float16"] = torch.float16
+    _TORCH_DTYPE_MAP[torch.float16] = torch.float16
+    # complex32 is only available on some PyTorch/nightly builds
+    if hasattr(torch, "complex32"):
+        _TORCH_DTYPE_MAP["complex32"] = torch.complex32
+        _TORCH_DTYPE_MAP[torch.complex32] = torch.complex32
+
 
 def to_torch_dtype(
     dtype_like: object, *, default: torch.dtype | None = None
@@ -104,10 +113,15 @@ def resolve_float_complex(dtype: torch.dtype) -> tuple[torch.dtype, torch.dtype]
     Raises:
         TypeError: If the dtype is not one of the supported float/complex types.
     """
-    float_complex_pairs: Iterable[tuple[torch.dtype, torch.dtype]] = (
+    # Build list of supported float<->complex pairs. Include float16/complex32
+    # when complex32 is available in this PyTorch build.
+    float_complex_pairs: list[tuple[torch.dtype, torch.dtype]] = [
         (torch.float32, torch.complex64),
         (torch.float64, torch.complex128),
-    )
+    ]
+    if hasattr(torch, "complex32"):
+        # Prefer mapping float16 <-> complex32 if supported
+        float_complex_pairs.insert(0, (torch.float16, torch.complex32))
 
     for float_dtype, complex_dtype in float_complex_pairs:
         if dtype in (float_dtype, complex_dtype):

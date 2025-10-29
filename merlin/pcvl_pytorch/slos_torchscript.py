@@ -35,34 +35,46 @@ from collections.abc import Callable
 
 import torch
 import torch.jit as jit
+from merlin.utils.dtypes import resolve_float_complex
 
 
-def _get_complex_dtype_for_float(dtype):
-    """Helper function to get the corresponding complex dtype for a float dtype."""
+def _get_complex_dtype_for_float(dtype: torch.dtype) -> torch.dtype:
+    """Return the complex dtype corresponding to the provided float dtype.
+
+    Uses merlin.utils.dtypes.resolve_float_complex as the single source of truth
+    and adds a small compatibility branch for float16/complex32 if available.
+    """
+    # Handle float16/complex32 explicitly when available
     if dtype == torch.float16 and hasattr(torch, "complex32"):
         return torch.complex32
-    elif dtype == torch.float:
-        return torch.cfloat
-    elif dtype == torch.float64:
-        return torch.cdouble
-    else:
+
+    try:
+        float_dtype, complex_dtype = resolve_float_complex(dtype)
+    except TypeError as exc:
         raise ValueError(
-            f"Unsupported dtype: {dtype}. Must be torch.float16, torch.float, or torch.float64"
-        )
+            f"Unsupported dtype: {dtype}. Supported float/complex dtypes are float16/32/64 and their complex counterparts"
+        ) from exc
+
+    return complex_dtype
 
 
-def _get_float_dtype_for_complex(dtype):
-    """Helper function to get the corresponding float dtype for a complex dtype."""
-    if dtype == torch.complex32:
+def _get_float_dtype_for_complex(dtype: torch.dtype) -> torch.dtype:
+    """Return the float dtype corresponding to the provided complex dtype.
+
+    Uses merlin.utils.dtypes.resolve_float_complex as the single source of truth
+    and adds a small compatibility branch for complex32/float16 if available.
+    """
+    if hasattr(torch, "complex32") and dtype == torch.complex32:
         return torch.float16
-    elif dtype == torch.cfloat:
-        return torch.float
-    elif dtype == torch.cdouble:
-        return torch.float64
-    else:
+
+    try:
+        float_dtype, complex_dtype = resolve_float_complex(dtype)
+    except TypeError as exc:
         raise ValueError(
-            f"Unsupported complex dtype: {dtype}. Must be torch.complex32, torch.cfloat, or torch.cdouble"
-        )
+            f"Unsupported complex dtype: {dtype}. Supported complex dtypes are complex32/64/128 when available"
+        ) from exc
+
+    return float_dtype
 
 
 def prepare_vectorized_operations(operations_list, device=None):
