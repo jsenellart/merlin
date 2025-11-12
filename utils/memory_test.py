@@ -37,7 +37,6 @@ def parse_args() -> argparse.Namespace:
 def main():
     args = parse_args()
     # Ensure prints even if env var not set
-    os.environ.setdefault("MERLIN_PROFILE_MEMORY", "1")
 
     n = int(args.photons)
     m = int(args.modes) if args.modes is not None else 2 * n
